@@ -241,8 +241,6 @@ def use_AK_to_GC(filename,GC_startdate, GC_enddate, use_Sensi,xlim,ylim,):
         localtime=TROPOMI['utctime'][iSat]
         localtime=pd.to_datetime(str(localtime))
         strdate=localtime.round('60min').strftime("%Y%m%d_%H")
-        # replace 01 with 00 because our dataset doesn't have hourly res?
-        strdate = strdate[0:8] + "_00"      
         all_strdate.append(strdate)
 
     all_strdate=list(set(all_strdate))    
@@ -259,8 +257,6 @@ def use_AK_to_GC(filename,GC_startdate, GC_enddate, use_Sensi,xlim,ylim,):
         localtime=TROPOMI['utctime'][iSat]+np.timedelta64(timeshift,'m')#local time
         localtime=pd.to_datetime(str(localtime))
         strdate=localtime.round('60min').strftime("%Y%m%d_%H")
-        # replace 01 with 00 because our dataset doesn't have hourly res?
-        strdate = strdate[0:8] + "_00"   
         GC=all_date_GC[strdate]
                         
         #===========
@@ -332,9 +328,9 @@ def use_AK_to_GC(filename,GC_startdate, GC_enddate, use_Sensi,xlim,ylim,):
         temp_obs_GC[iNN,6]=TROPOMI['surface_altitude'][iSat] #TROPOMI index of lattitude        
         temp_obs_GC[iNN,7]=TROPOMI['surface_albedo'][iSat,0] #TROPOMI index of lattitude
         temp_obs_GC[iNN,8]=TROPOMI['surface_albedo'][iSat,1] #TROPOMI index of lattitude
-        temp_obs_GC[iNN,9]=TROPOMI['surface_altitude_stdv'][iSat]
-        temp_obs_GC[iNN,10]=TROPOMI['aerosol_optical_thickness'][iSat,0] #AOT for NIR
-        temp_obs_GC[iNN,11]=TROPOMI['aerosol_optical_thickness'][iSat,1] #AOT for SWIR
+        # temp_obs_GC[iNN,9]=TROPOMI['surface_altitude_stdv'][iSat]
+        temp_obs_GC[iNN,9]=TROPOMI['aerosol_optical_thickness'][iSat,0] #AOT for NIR
+        temp_obs_GC[iNN,10]=TROPOMI['aerosol_optical_thickness'][iSat,1] #AOT for SWIR
         if use_Sensi:
             temp_KK[iNN,:]=GC_base_sensi/sum(overlap_area)
         
@@ -366,10 +362,10 @@ ylim=[-90, 90]
 # workdir="/n/holyscratch01/jacob_lab/lshen/CH4/GEOS-Chem/Flexgrid_global/CPU_global_Lorente/"
 workdir="/n/holyscratch01/jacob_lab/lestrada/IMI/"
 Sat_datadir="/n/seasasfs02/CH4_inversion/InputData/Obs/TROPOMI/"
-GC_datadir="/n/holyscratch01/jacob_lab/dvaron/archive/production_output_data/CH4_Jacobian_0000/OutputDir/"
+GC_datadir="/n/holyscratch01/jacob_lab/lshen/CH4/GEOS-Chem/Flexgrid_global/Global_4x5/OutputDir/"
 outputdir=workdir+"data_converted_BC/"
 Sensi_datadir=workdir+"Sensi/"
-scriptdir="/n/home03/lestrada/projects/IMI/BC_scripts/" # location of scripts
+scriptdir="/n/home03/lestrada/projects/IMI/CH4-boundary-condition-scripts/" # location of scripts
 
 os.chdir(scriptdir+"Step1_convert_GC")
 

@@ -25,7 +25,7 @@ smooth_1D=function(y){
 }
 
 #======================================================
-setwd("/n/holyscratch01/jacob_lab/lshen/CH4/GEOS-Chem/Flexgrid_global/CPU_global_Lorente/Step3_correct_background")
+setwd("/n/home03/lestrada/projects/IMI/CH4-boundary-condition-scripts/Step3_correct_background")
 
 datafile=nc_open("Daily_CH4.nc")
 TROPOMI.lon=ncvar_get(datafile,varid="lon")
@@ -97,7 +97,7 @@ bias_4x5_new[bias_4x5_new<=-30]=-30
 dev.new(width=5,height=2.8)
 avg1=apply(bias_4x5,c(1,2),mean,na.rm=T)
 avg2=apply(bias_4x5_new,c(1,2),mean,na.rm=T)
-plot.field(avg1-avg2, lon.out, lat.out,type="sign",zlim=c(-10,10))
+#plot.field(avg1-avg2, lon.out, lat.out,type="sign",zlim=c(-10,10))
 
 mean(bias_4x5_new)
 

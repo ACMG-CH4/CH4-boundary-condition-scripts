@@ -36,8 +36,9 @@ def daterange(date1, date2):
         
 #==================================================  
 workdir="/n/holyscratch01/jacob_lab/lestrada/IMI/"
-GC_datadir="/n/holyscratch01/jacob_lab/dvaron/archive/production_output_data/CH4_Jacobian_0000/OutputDir/"
-data_converted=workdir+"data_converted_BC/"
+GC_datadir="/n/holyscratch01/jacob_lab/lshen/CH4/GEOS-Chem/Flexgrid_global/Global_4x5/OutputDir/"
+# "/n/holyscratch01/jacob_lab/dvaron/archive/production_output_data/CH4_Jacobian_0000/OutputDir/"
+data_converted=workdir+"data_converted_BC1/"
 outputdir=workdir+"Step2_regrid_fast/"
 
 GC_data=glob.glob(GC_datadir+'GEOSChem.SpeciesConc*.nc4')[0]
