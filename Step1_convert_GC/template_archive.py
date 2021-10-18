@@ -30,7 +30,7 @@ def read_tropomi(filename):
     met['surface_albedo']=data['surface_albedo'].values
     met['aerosol_optical_thickness']=data['aerosol_optical_thickness'].values        
     met['surface_altitude']=data['surface_altitude'].values
-    met['surface_altitude_stdv']=data['surface_altitude_stdv'].values
+    # met['surface_altitude_stdv']=data['surface_altitude_stdv'].values not needed for IMI workflow
     dates = pd.DataFrame(data['time'].values[:,:-1],
                          columns=['year', 'month', 'day', 'hour', 'minute', 'second'])
     dates = pd.to_datetime(dates)#.dt.strftime('%Y%m%dT%H%M%S')
@@ -56,8 +56,7 @@ def read_tropomi(filename):
 def read_GC(date,use_Sensi=False):
     month=int(date[4:6])
     file_species="GEOSChem.SpeciesConc."+date+"00z.nc4"        
-    file_pedge="GEOSChem.LevelEdgeDiags."+date+"00z.nc4"    
-    file_troppause="GEOSChem.StateMet."+date+"00z.nc4"    
+    file_pedge="GEOSChem.LevelEdgeDiags."+date+"00z.nc4" 
     
     #-- read CH4 ---
     filename=GC_datadir+'/'+ file_species
@@ -76,20 +75,24 @@ def read_GC(date,use_Sensi=False):
     PEDGE=np.einsum('lij->jil',PEDGE)
     data.close()
     
+    # Note: the State Met file is used to adjust methane values in the stratosphere
+    # for the IMI workflow we do not adjust for this bias because we are using 
+    # nested domains, so we will not use it here either. -lae 10/15/2021   
+    # file_troppause="GEOSChem.StateMet."+date+"00z.nc4"   
     #-- read TROPP ---
-    filename=GC_datadir+'/'+ file_troppause
-    data=xr.open_dataset(filename)
-    TROPP = data['Met_TropLev'].values[0,:,:];
-    TROPP=np.einsum('ij->ji',TROPP)
-    data.close()    
+    # filename=GC_datadir+'/'+ file_troppause
+    # data=xr.open_dataset(filename)
+    # TROPP = data['Met_TropLev'].values[0,:,:];
+    # TROPP=np.einsum('ij->ji',TROPP)
+    # data.close()    
         
     #--- read base GC -----
     CH4_adjusted=CH4.copy()
-    for i in range(len(LON)):
-        for j in range(len(LAT)):
-            l=int(TROPP[i,j])
-            ind=np.where(lat_mid == LAT[j])[0][0]### find the location of lat in lat_mid        
-            CH4_adjusted[i,j,l:]=CH4[i,j,l:]*lat_ratio[ind,month-1]
+    # for i in range(len(LON)):
+    #     for j in range(len(LAT)):
+    #         l=int(TROPP[i,j])
+    #         ind=np.where(lat_mid == LAT[j])[0][0]### find the location of lat in lat_mid        
+    #         CH4_adjusted[i,j,l:]=CH4[i,j,l:]*lat_ratio[ind,month-1]
 
     met={}
     met['lon']=LON
@@ -97,7 +100,7 @@ def read_GC(date,use_Sensi=False):
     met['PEDGE']=PEDGE
     met['CH4']=CH4
     met['CH4_adjusted']=CH4_adjusted
-    met['TROPP']=TROPP
+    # met['TROPP']=TROPP
 
     #--- read sensitivity ---
     if use_Sensi:
@@ -237,12 +240,14 @@ def use_AK_to_GC(filename,GC_startdate, GC_enddate, use_Sensi,xlim,ylim,):
         iSat=sat_ind[0][iNN]
         localtime=TROPOMI['utctime'][iSat]
         localtime=pd.to_datetime(str(localtime))
-        strdate=localtime.round('60min').strftime("%Y%m%d_%H")        
+        strdate=localtime.round('60min').strftime("%Y%m%d_%H")
+        # replace 01 with 00 because our dataset doesn't have hourly res?
+        strdate = strdate[0:8] + "_00"      
         all_strdate.append(strdate)
 
     all_strdate=list(set(all_strdate))    
     all_date_GC=read_all_GC(all_strdate,use_Sensi)
-    
+
     for iNN in range(NN):
         iSat=sat_ind[0][iNN]
         Sat_p=TROPOMI['pressures'][iSat,:]
@@ -253,7 +258,9 @@ def use_AK_to_GC(filename,GC_startdate, GC_enddate, use_Sensi,xlim,ylim,):
         timeshift=0
         localtime=TROPOMI['utctime'][iSat]+np.timedelta64(timeshift,'m')#local time
         localtime=pd.to_datetime(str(localtime))
-        strdate=localtime.round('60min').strftime("%Y%m%d_%H")        
+        strdate=localtime.round('60min').strftime("%Y%m%d_%H")
+        # replace 01 with 00 because our dataset doesn't have hourly res?
+        strdate = strdate[0:8] + "_00"   
         GC=all_date_GC[strdate]
                         
         #===========
@@ -267,6 +274,9 @@ def use_AK_to_GC(filename,GC_startdate, GC_enddate, use_Sensi,xlim,ylim,):
             corners_lat.append(jGC)
 
         GC_ij=[(x,y) for x in set(corners_lon) for y in set(corners_lat)]
+        # error check for nans to skip creating gc grid if needed
+        if np.nan in [item for sublist in GC_ij for item in sublist]:
+            continue
         GC_grids=[(GC['lon'][i], GC['lat'][j]) for i,j in GC_ij]
         
         overlap_area=np.zeros(len(GC_grids))
@@ -353,13 +363,15 @@ N_pert=156
 xlim=[-180, 180]
 ylim=[-90, 90]
 
-workdir="/n/holyscratch01/jacob_lab/lshen/CH4/GEOS-Chem/Flexgrid_global/CPU_global_Lorente/"
-Sat_datadir=workdir+"data_TROPOMI/"
-GC_datadir=workdir+"data_GC/"
-outputdir=workdir+"data_converted/"
+# workdir="/n/holyscratch01/jacob_lab/lshen/CH4/GEOS-Chem/Flexgrid_global/CPU_global_Lorente/"
+workdir="/n/holyscratch01/jacob_lab/lestrada/IMI/"
+Sat_datadir="/n/seasasfs02/CH4_inversion/InputData/Obs/TROPOMI/"
+GC_datadir="/n/holyscratch01/jacob_lab/dvaron/archive/production_output_data/CH4_Jacobian_0000/OutputDir/"
+outputdir=workdir+"data_converted_BC/"
 Sensi_datadir=workdir+"Sensi/"
+scriptdir="/n/home03/lestrada/projects/IMI/BC_scripts/" # location of scripts
 
-os.chdir(workdir+"Step1_convert_GC")
+os.chdir(scriptdir+"Step1_convert_GC")
 
 #==== read GC lon and lat ===
 data=xr.open_dataset(glob.glob(GC_datadir+"*.nc4")[0])
@@ -372,8 +384,8 @@ df=pd.read_csv("./lat_ratio.csv",index_col=0)
 lat_mid=df.index
 lat_ratio=df.values
 
-GC_startdate=datetime.datetime.strptime("2018-05-01 00:00:00", '%Y-%m-%d %H:%M:%S')
-GC_enddate=datetime.datetime.strptime("2020-02-28 23:59:59", '%Y-%m-%d %H:%M:%S')
+GC_startdate=datetime.datetime.strptime("2019-07-01 23:59:59", '%Y-%m-%d %H:%M:%S')
+GC_enddate=datetime.datetime.strptime("2019-07-02 23:59:59", '%Y-%m-%d %H:%M:%S')
 GC_startdate=np.datetime64(GC_startdate)
 GC_enddate=np.datetime64(GC_enddate)
 
