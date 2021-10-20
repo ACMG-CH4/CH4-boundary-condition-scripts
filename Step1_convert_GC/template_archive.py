@@ -9,6 +9,7 @@ import os
 import pandas as pd 
 import datetime
 from shapely.geometry import Polygon
+from utilities.utils import download_TROPOMI
 
 #----- define function -------
 def save_obj(obj, name ):
@@ -384,6 +385,9 @@ GC_startdate=datetime.datetime.strptime("2019-07-01 23:59:59", '%Y-%m-%d %H:%M:%
 GC_enddate=datetime.datetime.strptime("2019-07-02 23:59:59", '%Y-%m-%d %H:%M:%S')
 GC_startdate=np.datetime64(GC_startdate)
 GC_enddate=np.datetime64(GC_enddate)
+
+#==== download TROPOMI data
+download_TROPOMI(GC_startdate, GC_enddate, Sat_datadir)
 
 #==== read Satellite ===
 allfiles=glob.glob(Sat_datadir+'*.nc')
