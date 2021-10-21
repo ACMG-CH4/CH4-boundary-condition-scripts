@@ -22,28 +22,43 @@ def load_obj(name):
     
 def read_tropomi(filename):
     met={}
-    data=xr.open_dataset(filename)
+    # PRODUCT group
+    data=xr.open_dataset(filename, group='PRODUCT')
     data.close()
-    met['methane']  = data['xch4_corrected'].values# 51975
-    met['qa_value'] = data['qa_value'].values# 51975
-    met['longitude']= data['longitude_center'].values# 51975
-    met['latitude'] = data['latitude_center'].values# 51975
-    met['surface_albedo']=data['surface_albedo'].values
-    met['aerosol_optical_thickness']=data['aerosol_optical_thickness'].values        
-    met['surface_altitude']=data['surface_altitude'].values
-    # met['surface_altitude_stdv']=data['surface_altitude_stdv'].values not needed for IMI workflow
+    met['methane']  = data['xch4_corrected'].values[0,:,:]
+    met['qa_value'] = data['qa_value'].values[0,:,:]
+    met['longitude']= data['longitude'].values[0,:,:]
+    met['latitude'] = data['latitude'].values[0,:,:]
     dates = pd.DataFrame(data['time'].values[:,:-1],
                          columns=['year', 'month', 'day', 'hour', 'minute', 'second'])
     dates = pd.to_datetime(dates)#.dt.strftime('%Y%m%dT%H%M%S')
     met['utctime']=dates
     met['localtime']=dates
-    met['column_AK']=data['xch4_column_averaging_kernel'].values[:,::-1]#51975x12    
-    met['methane_profile_apriori']=data['ch4_profile_apriori'].values[:,::-1]
-    pressure_interval=data['dp'].values #hPa
-    surface_pressure=data['surface_pressure'].values #hPa
-    met['dry_air_subcolumns']=data['dry_air_subcolumns'].values[:,::-1]
-    met['longitude_bounds']=data['longitude_corners'].values
-    met['latitude_bounds']=data['latitude_corners'].values    
+
+    # PRODUCT/SUPPORT_DATA/DETAILED_RESULTS group
+    data = xr.open_dataset(filename, group='PRODUCT/SUPPORT_DATA/DETAILED_RESULTS')
+    data.close()
+    met['column_AK'] = data['column_averaging_kernel'].values[0,:,:,::-1] # [:,::-1] #51975x12
+    met['surface_albedo']=data['surface_albedo_SWIR'].values #?
+    met['aerosol_optical_thickness']=data['aerosol_optical_thickness_SWIR'].values #?      
+    
+    # PRODUCT/SUPPORT_DATA/GEOLOCATIONS group
+    data=xr.open_dataset(filename, group="PRODUCT/SUPPORT_DATA/GEOLOCATIONS")
+    data.close()
+    met['longitude_bounds']=data['longitude_bounds'].values[0,:,:,:]
+    met['latitude_bounds']=data['latitude_bounds'].values[0,:,:,:]    
+
+    # PRODUCT/SUPPORT_DATA/INPUT_DATA group
+    data=xr.open_dataset(filename, group="PRODUCT/SUPPORT_DATA/INPUT_DATA")
+    data.close()
+    met['methane_profile_apriori']=data['ch4_profile_apriori'].values[0,:,:,::-1] # [:,::-1]
+    pressure_interval = data['pressure_interval'].values[0,:,:]/100 # hPa
+    surface_pressure=data['surface_pressure'].values[0,:,:]/100 #hPa
+    data['dry_air_subcolumns'].values[0,:,:,::-1] #[:,::-1] # mol m-2
+    met['surface_altitude']=data['surface_altitude'].values #?
+    met['surface_altitude_stdv']=data['surface_altitude_precision'].values #?
+
+
     N1=met['methane'].shape[0]
     pressures=np.zeros([N1,13], dtype=np.float)
     pressures.fill(np.nan)
@@ -329,9 +344,9 @@ def use_AK_to_GC(filename,GC_startdate, GC_enddate, use_Sensi,xlim,ylim,):
         temp_obs_GC[iNN,6]=TROPOMI['surface_altitude'][iSat] #TROPOMI index of lattitude        
         temp_obs_GC[iNN,7]=TROPOMI['surface_albedo'][iSat,0] #TROPOMI index of lattitude
         temp_obs_GC[iNN,8]=TROPOMI['surface_albedo'][iSat,1] #TROPOMI index of lattitude
-        # temp_obs_GC[iNN,9]=TROPOMI['surface_altitude_stdv'][iSat]
-        temp_obs_GC[iNN,9]=TROPOMI['aerosol_optical_thickness'][iSat,0] #AOT for NIR
-        temp_obs_GC[iNN,10]=TROPOMI['aerosol_optical_thickness'][iSat,1] #AOT for SWIR
+        temp_obs_GC[iNN,9]=TROPOMI['surface_altitude_stdv'][iSat]
+        temp_obs_GC[iNN,10]=TROPOMI['aerosol_optical_thickness'][iSat,0] #AOT for NIR
+        temp_obs_GC[iNN,11]=TROPOMI['aerosol_optical_thickness'][iSat,1] #AOT for SWIR
         if use_Sensi:
             temp_KK[iNN,:]=GC_base_sensi/sum(overlap_area)
         
@@ -356,17 +371,17 @@ def nearest_loc(loc0,table,tolerance=5):
 #===========================Define functions ==================================
 #==============================================================================
 use_Sensi = False
+download_Sat_data = True
 N_pert=156
 xlim=[-180, 180]
 ylim=[-90, 90]
 
-# workdir="/n/holyscratch01/jacob_lab/lshen/CH4/GEOS-Chem/Flexgrid_global/CPU_global_Lorente/"
-workdir="/n/holyscratch01/jacob_lab/lestrada/IMI/"
-Sat_datadir="/n/seasasfs02/CH4_inversion/InputData/Obs/TROPOMI/"
-GC_datadir="/n/holyscratch01/jacob_lab/lshen/CH4/GEOS-Chem/Flexgrid_global/Global_4x5/OutputDir/"
+workdir="/home/ubuntu/"
+Sat_datadir=workdir+"TROPOMI_data/"
+GC_datadir="/home/ubuntu/GC_run/OutputDir/"
 outputdir=workdir+"data_converted_BC/"
 Sensi_datadir=workdir+"Sensi/"
-scriptdir="/n/home03/lestrada/projects/IMI/CH4-boundary-condition-scripts/" # location of scripts
+scriptdir="/home/ubuntu/CH4-boundary-condition-scripts/" # location of scripts
 
 os.chdir(scriptdir+"Step1_convert_GC")
 
@@ -387,7 +402,9 @@ GC_startdate=np.datetime64(GC_startdate)
 GC_enddate=np.datetime64(GC_enddate)
 
 #==== download TROPOMI data
-download_TROPOMI(GC_startdate, GC_enddate, Sat_datadir)
+# TODO: eventually should check if files exist on the fly before downloading
+if download_Sat_data:
+    download_TROPOMI(GC_startdate, GC_enddate, Sat_datadir)
 
 #==== read Satellite ===
 allfiles=glob.glob(Sat_datadir+'*.nc')

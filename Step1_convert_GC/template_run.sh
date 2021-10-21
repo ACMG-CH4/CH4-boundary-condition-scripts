@@ -3,11 +3,11 @@
 #SBATCH -n 1
 #SBATCH -N 1
 #SBATCH -t 0-10:00
-#SBATCH -p huce_cascade
 #SBATCH --mem=10000
 #SBATCH --mail-type=END
 
 #export OMP_NUM_THREADS=$SLURM_NTASKS
+export PYTHONPATH="/home/ubuntu/CH4-boundary-condition-scripts"
 python -u run_{run_num}.py
 exit 0
 #EOC
