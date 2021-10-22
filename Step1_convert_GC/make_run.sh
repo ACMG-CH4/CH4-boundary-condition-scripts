@@ -1,6 +1,5 @@
 #!/bin/bash
-
-for index in {1..10};do
+for index in {1..1};do
 
 INP="template_run.sh"
 sed -e "s/{run_num}/$index/ig"  $INP > tmp.input

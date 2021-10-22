@@ -25,7 +25,7 @@ def read_tropomi(filename):
     # PRODUCT group
     data=xr.open_dataset(filename, group='PRODUCT')
     data.close()
-    met['methane']  = data['xch4_corrected'].values[0,:,:]
+    met['methane']  = data['methane_mixing_ratio_bias_corrected'].values[0,:,:]
     met['qa_value'] = data['qa_value'].values[0,:,:]
     met['longitude']= data['longitude'].values[0,:,:]
     met['latitude'] = data['latitude'].values[0,:,:]
@@ -94,21 +94,21 @@ def read_GC(date,use_Sensi=False):
     # Note: the State Met file is used to adjust methane values in the stratosphere
     # for the IMI workflow we do not adjust for this bias because we are using 
     # nested domains, so we will not use it here either. -lae 10/15/2021   
-    # file_troppause="GEOSChem.StateMet."+date+"00z.nc4"   
-    #-- read TROPP ---
-    # filename=GC_datadir+'/'+ file_troppause
-    # data=xr.open_dataset(filename)
-    # TROPP = data['Met_TropLev'].values[0,:,:];
-    # TROPP=np.einsum('ij->ji',TROPP)
-    # data.close()    
+    file_troppause="GEOSChem.StateMet."+date+"00z.nc4"   
+    # -- read TROPP ---
+    filename=GC_datadir+'/'+ file_troppause
+    data=xr.open_dataset(filename)
+    TROPP = data['Met_TropLev'].values[0,:,:];
+    TROPP=np.einsum('ij->ji',TROPP)
+    data.close()    
         
     #--- read base GC -----
     CH4_adjusted=CH4.copy()
-    # for i in range(len(LON)):
-    #     for j in range(len(LAT)):
-    #         l=int(TROPP[i,j])
-    #         ind=np.where(lat_mid == LAT[j])[0][0]### find the location of lat in lat_mid        
-    #         CH4_adjusted[i,j,l:]=CH4[i,j,l:]*lat_ratio[ind,month-1]
+    for i in range(len(LON)):
+        for j in range(len(LAT)):
+            l=int(TROPP[i,j])
+            ind=np.where(lat_mid == LAT[j])[0][0]### find the location of lat in lat_mid        
+            CH4_adjusted[i,j,l:]=CH4[i,j,l:]*lat_ratio[ind,month-1]
 
     met={}
     met['lon']=LON
@@ -116,7 +116,7 @@ def read_GC(date,use_Sensi=False):
     met['PEDGE']=PEDGE
     met['CH4']=CH4
     met['CH4_adjusted']=CH4_adjusted
-    # met['TROPP']=TROPP
+    met['TROPP']=TROPP
 
     #--- read sensitivity ---
     if use_Sensi:
@@ -371,7 +371,7 @@ def nearest_loc(loc0,table,tolerance=5):
 #===========================Define functions ==================================
 #==============================================================================
 use_Sensi = False
-download_Sat_data = True
+download_Sat_data = False
 N_pert=156
 xlim=[-180, 180]
 ylim=[-90, 90]
@@ -396,8 +396,8 @@ df=pd.read_csv("./lat_ratio.csv",index_col=0)
 lat_mid=df.index
 lat_ratio=df.values
 
-GC_startdate=datetime.datetime.strptime("2019-07-01 23:59:59", '%Y-%m-%d %H:%M:%S')
-GC_enddate=datetime.datetime.strptime("2019-07-02 23:59:59", '%Y-%m-%d %H:%M:%S')
+GC_startdate=datetime.datetime.strptime("2020-06-01 00:00:00", '%Y-%m-%d %H:%M:%S')
+GC_enddate=datetime.datetime.strptime("2020-07-01 00:00:00", '%Y-%m-%d %H:%M:%S')
 GC_startdate=np.datetime64(GC_startdate)
 GC_enddate=np.datetime64(GC_enddate)
 
