@@ -53,8 +53,8 @@ def read_tropomi(filename):
     data = xr.open_dataset(filename, group='PRODUCT/SUPPORT_DATA/DETAILED_RESULTS')
     data.close()
     met['column_AK'] = data['column_averaging_kernel'].values[0,:,:,::-1] # [:,::-1] #51975x12
-    met['surface_albedo']=data['surface_albedo_SWIR'].values #?
-    met['aerosol_optical_thickness']=data['aerosol_optical_thickness_SWIR'].values #?      
+    met['surface_albedo']=data['surface_albedo_SWIR'].values[0,:,:]
+    met['aerosol_optical_thickness']=data['aerosol_optical_thickness_SWIR'].values[0,:,:]
     
     # PRODUCT/SUPPORT_DATA/GEOLOCATIONS group
     data=xr.open_dataset(filename, group="PRODUCT/SUPPORT_DATA/GEOLOCATIONS")
@@ -69,8 +69,8 @@ def read_tropomi(filename):
     pressure_interval = data['pressure_interval'].values[0,:,:]/100 # hPa
     surface_pressure=data['surface_pressure'].values[0,:,:]/100 #hPa
     data['dry_air_subcolumns'].values[0,:,:,::-1] #[:,::-1] # mol m-2
-    met['surface_altitude']=data['surface_altitude'].values #?
-    met['surface_altitude_stdv']=data['surface_altitude_precision'].values #?
+    met['surface_altitude']=data['surface_altitude'].values[0,:,:]
+    met['surface_altitude_stdv']=data['surface_altitude_precision'].values[0,:,:]
     met['dry_air_subcolumns'] = data['dry_air_subcolumns'].values[0,:,:,::-1]
 
     # Store vertical pressure profile
@@ -289,20 +289,21 @@ def use_AK_to_GC(filename,GC_startdate, GC_enddate, use_Sensi,xlim,ylim,):
 
     for iNN in range(NN):
         iSat=sat_ind[0][iNN]
-        Sat_p=TROPOMI['pressures'][iSat,:]
-        dry_air_subcolumns=TROPOMI['dry_air_subcolumns'][iSat,:]#mol m-2
-        priori=TROPOMI['methane_profile_apriori'][iSat,:]
-        AK=TROPOMI['column_AK'][iSat,:]
-
+        jSat = sat_ind[1][iNN]
+        Sat_p = TROPOMI["pressures"][iSat, jSat, :]
+        dry_air_subcolumns = TROPOMI["dry_air_subcolumns"][iSat, jSat, :]  # mol m-2
+        priori = TROPOMI["methane_profile_apriori"][iSat, jSat, :]  # mol m-2
+        AK = TROPOMI["column_AK"][iSat, jSat, :]
+        timeshift = int(TROPOMI["longitude"][iSat, jSat] / 15 * 60)
         timeshift=0
         localtime=TROPOMI['utctime'][iSat]+np.timedelta64(timeshift,'m')#local time
         localtime=pd.to_datetime(str(localtime))
         strdate=localtime.round('60min').strftime("%Y%m%d_%H")
         GC=all_date_GC[strdate]
                         
-        #===========
-        longitude_bounds=TROPOMI['longitude_bounds'][iSat,:]
-        latitude_bounds=TROPOMI['latitude_bounds'][iSat,:]
+        # Find GC lats & lons closest to the corners of the TROPOMI pixel
+        longitude_bounds=TROPOMI['longitude_bounds'][iSat, jSat, :]
+        latitude_bounds=TROPOMI['latitude_bounds'][iSat, jSat, :]
         corners_lon=[];corners_lat=[]
         for k in range(4):
             iGC=nearest_loc(longitude_bounds[k], GC['lon'])
@@ -360,16 +361,16 @@ def use_AK_to_GC(filename,GC_startdate, GC_enddate, use_Sensi,xlim,ylim,):
                 ap=np.sum(AKs*Sat_CH4*dry_air_subcolumns_s,0)/sum(dry_air_subcolumns)
                 GC_base_sensi=GC_base_sensi+overlap_area[ipixel]*ap
                                 
-        temp_obs_GC[iNN,0]=TROPOMI['methane'][iSat]#TROPOMI methane
+        temp_obs_GC[iNN,0]=TROPOMI['methane'][iSat, jSat]#TROPOMI methane
         temp_obs_GC[iNN,1]=GC_base_posteri/sum(overlap_area) # GC methane
-        temp_obs_GC[iNN,2]=TROPOMI['longitude'][iSat] #TROPOMI longitude
-        temp_obs_GC[iNN,3]=TROPOMI['latitude'][iSat]  #TROPOMI latitude 
+        temp_obs_GC[iNN,2]=TROPOMI['longitude'][iSat,jSat] #TROPOMI longitude
+        temp_obs_GC[iNN,3]=TROPOMI['latitude'][iSat,jSat]  #TROPOMI latitude 
         temp_obs_GC[iNN,4]=iSat #TROPOMI index of longitude
-        temp_obs_GC[iNN,5]=0 #TROPOMI index of lattitude
-        temp_obs_GC[iNN,6]=TROPOMI['surface_altitude'][iSat] #TROPOMI index of lattitude        
+        temp_obs_GC[iNN,5]=jSat #TROPOMI index of lattitude
+        temp_obs_GC[iNN,6]=TROPOMI['surface_altitude'][iSat,jSat] #TROPOMI index of lattitude        
         temp_obs_GC[iNN,7]=TROPOMI['surface_albedo'][iSat,0] #TROPOMI index of lattitude
         temp_obs_GC[iNN,8]=TROPOMI['surface_albedo'][iSat,1] #TROPOMI index of lattitude
-        temp_obs_GC[iNN,9]=TROPOMI['surface_altitude_stdv'][iSat]
+        temp_obs_GC[iNN,9]=TROPOMI['surface_altitude_stdv'][iSat,jSat]
         temp_obs_GC[iNN,10]=TROPOMI['aerosol_optical_thickness'][iSat,0] #AOT for NIR
         temp_obs_GC[iNN,11]=TROPOMI['aerosol_optical_thickness'][iSat,1] #AOT for SWIR
         if use_Sensi:
