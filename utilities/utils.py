@@ -111,3 +111,9 @@ def download_TROPOMI(startdate, enddate, Sat_datadir):
     # Remove the file afterwards
     status = subprocess.call(DATA_DOWNLOAD_SCRIPT)
     os.remove(DATA_DOWNLOAD_SCRIPT)
+
+# Create a new directory if it does not exist 
+def mkdir(path):
+    exists = os.path.exists(path)
+    if not os.path.exists(path):
+        os.makedirs(path)
