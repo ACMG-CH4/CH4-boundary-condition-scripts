@@ -29,11 +29,25 @@ def read_tropomi(filename):
     met['qa_value'] = data['qa_value'].values[0,:,:]
     met['longitude']= data['longitude'].values[0,:,:]
     met['latitude'] = data['latitude'].values[0,:,:]
-    dates = pd.DataFrame(data['time'].values[:,:-1],
-                         columns=['year', 'month', 'day', 'hour', 'minute', 'second'])
-    dates = pd.to_datetime(dates)#.dt.strftime('%Y%m%dT%H%M%S')
-    met['utctime']=dates
-    met['localtime']=dates
+    # Store UTC time [****why is this necessary? time_utc is a standard tropomi variable]
+    referencetime = data['time'].values
+    delta_time = data['delta_time'][0].values
+    strdate = []
+    if delta_time.dtype == '<m8[ns]':
+        strdate = referencetime+delta_time
+    elif delta_time.dtype == '<M8[ns]':
+        strdate = delta_time
+    else:
+        print(delta_time.dtype)
+        pass
+    met['utctime'] = strdate
+    
+    # Store local time
+    timeshift = np.array(met['longitude']/15*60, dtype=int)   # Convert to minutes
+    localtimes = np.zeros(shape=timeshift.shape, dtype='datetime64[ns]')
+    for kk in range(timeshift.shape[0]):
+        localtimes[kk,:] = strdate[kk]
+    met['localtime'] = localtimes
 
     # PRODUCT/SUPPORT_DATA/DETAILED_RESULTS group
     data = xr.open_dataset(filename, group='PRODUCT/SUPPORT_DATA/DETAILED_RESULTS')
@@ -51,21 +65,22 @@ def read_tropomi(filename):
     # PRODUCT/SUPPORT_DATA/INPUT_DATA group
     data=xr.open_dataset(filename, group="PRODUCT/SUPPORT_DATA/INPUT_DATA")
     data.close()
-    met['methane_profile_apriori']=data['ch4_profile_apriori'].values[0,:,:,::-1] # [:,::-1]
+    met['methane_profile_apriori']=data['methane_profile_apriori'].values[0,:,:,::-1] # [:,::-1]
     pressure_interval = data['pressure_interval'].values[0,:,:]/100 # hPa
     surface_pressure=data['surface_pressure'].values[0,:,:]/100 #hPa
     data['dry_air_subcolumns'].values[0,:,:,::-1] #[:,::-1] # mol m-2
     met['surface_altitude']=data['surface_altitude'].values #?
     met['surface_altitude_stdv']=data['surface_altitude_precision'].values #?
+    met['dry_air_subcolumns'] = data['dry_air_subcolumns'].values[0,:,:,::-1]
 
-
-    N1=met['methane'].shape[0]
-    pressures=np.zeros([N1,13], dtype=np.float)
+    # Store vertical pressure profile
+    N1 = met['methane'].shape[0]
+    N2 = met['methane'].shape[1]
+    pressures = np.zeros([N1,N2,13], dtype=np.float)
     pressures.fill(np.nan)
     for i in range(12+1):
-        pressures[:,i]=surface_pressure-i*pressure_interval
-    
-    met['pressures']=pressures    
+        pressures[:,:,i] = surface_pressure - i*pressure_interval
+    met['pressures'] = pressures 
     return met    
 
 
@@ -236,7 +251,17 @@ def remap2(Sensi, data_type, Com_p, location, first_2):
 def use_AK_to_GC(filename,GC_startdate, GC_enddate, use_Sensi,xlim,ylim,):
     TROPOMI=read_tropomi(filename)#read TROPOMI data
     kuadu=np.max(TROPOMI['longitude_bounds'],1) - np.min(TROPOMI['longitude_bounds'],1)
-    sat_ind=np.where((TROPOMI['longitude']>xlim[0]) & (TROPOMI['longitude']<xlim[1]) & (TROPOMI['latitude']>ylim[0]) & (TROPOMI['latitude']<ylim[1]) & (TROPOMI['qa_value']>=0.5) & (TROPOMI['utctime']>=GC_startdate) & (TROPOMI['utctime']<=GC_enddate) &  (TROPOMI['methane']<=3000) & (kuadu<=10) )
+    sat_ind = np.where(
+        (TROPOMI['longitude'] > xlim[0])
+        & (TROPOMI['longitude'] < xlim[1])     
+        & (TROPOMI['latitude'] > ylim[0])      
+        & (TROPOMI['latitude'] < ylim[1])     
+        & (TROPOMI['localtime'] >= GC_startdate) 
+        & (TROPOMI['localtime'] <= GC_enddate)  
+        & (TROPOMI['qa_value'] >= 0.5)
+        # & (kuadu <= 10) # breaks it with 2 dimensions
+    )
+
     NN=len(sat_ind[0])
     print(NN)
     if use_Sensi:
@@ -378,7 +403,7 @@ ylim=[-90, 90]
 
 workdir="/home/ubuntu/"
 Sat_datadir=workdir+"TROPOMI_data/"
-GC_datadir="/home/ubuntu/GC_run/OutputDir/"
+GC_datadir="/home/ubuntu/run_GC/OutputDir/"
 outputdir=workdir+"data_converted_BC/"
 Sensi_datadir=workdir+"Sensi/"
 scriptdir="/home/ubuntu/CH4-boundary-condition-scripts/" # location of scripts
