@@ -9,7 +9,7 @@ import os
 import pandas as pd
 import datetime
 from shapely.geometry import Polygon
-from utilities.utils import download_TROPOMI
+from utilities.utils import download_TROPOMI, read_config_file
 
 # ----- define function -------
 def save_obj(obj, name):
@@ -98,7 +98,7 @@ def read_GC(date, use_Sensi=False):
     file_pedge = "GEOSChem.LevelEdgeDiags." + date + "00z.nc4"
 
     # -- read CH4 ---
-    filename = GC_datadir + "/" + file_species
+    filename = config["paths"]["GC_datadir"] + "/" + file_species
     data = xr.open_dataset(filename)
     LON = data["lon"].values
     LAT = data["lat"].values
@@ -108,7 +108,7 @@ def read_GC(date, use_Sensi=False):
     data.close()
 
     # -- read PEDGE ---
-    filename = GC_datadir + "/" + file_pedge
+    filename = config["paths"]["GC_datadir"] + "/" + file_pedge
     data = xr.open_dataset(filename)
     PEDGE = data["Met_PEDGE"].values[0, :, :, :]
     PEDGE = np.einsum("lij->jil", PEDGE)
@@ -119,7 +119,7 @@ def read_GC(date, use_Sensi=False):
     # nested domains, so we will not use it here either. -lae 10/15/2021
     file_troppause = "GEOSChem.StateMet." + date + "00z.nc4"
     # -- read TROPP ---
-    filename = GC_datadir + "/" + file_troppause
+    filename = config["paths"]["GC_datadir"] + "/" + file_troppause
     data = xr.open_dataset(filename)
     TROPP = data["Met_TropLev"].values[0, :, :]
     TROPP = np.einsum("ij->ji", TROPP)
@@ -473,23 +473,21 @@ def nearest_loc(loc0, table, tolerance=5):
 # ==============================================================================
 # ===========================Define functions ==================================
 # ==============================================================================
-use_Sensi = False
-download_Sat_data = False
+config = read_config_file(
+    "/home/ubuntu/CH4-boundary-condition-scripts/boundary_condition_config.yml"
+)["step1"]
 N_pert = 156
 xlim = [-180, 180]
 ylim = [-90, 90]
 
-workdir = "/home/ubuntu/"
-Sat_datadir = workdir + "TROPOMI_data/"
-GC_datadir = "/home/ubuntu/run_GC/OutputDir/"
-outputdir = workdir + "data_converted_BC/"
-Sensi_datadir = workdir + "Sensi/"
-scriptdir = "/home/ubuntu/CH4-boundary-condition-scripts/"  # location of scripts
+Sat_datadir = config["paths"]["workdir"] + "TROPOMI_data/"
+outputdir = config["paths"]["workdir"] + "data_converted_BC/"
+Sensi_datadir = config["paths"]["workdir"] + "Sensi/"
 
-os.chdir(scriptdir + "Step1_convert_GC")
+os.chdir(config["paths"]["scriptdir"] + "Step1_convert_GC")
 
 # ==== read GC lon and lat ===
-data = xr.open_dataset(glob.glob(GC_datadir + "*.nc4")[0])
+data = xr.open_dataset(glob.glob(config["paths"]["GC_datadir"] + "*.nc4")[0])
 GC_lon = data["lon"].values
 GC_lat = data["lat"].values
 data.close()
@@ -506,7 +504,7 @@ GC_enddate = np.datetime64(GC_enddate)
 
 # ==== download TROPOMI data
 # TODO: eventually should check if files exist on the fly before downloading
-if download_Sat_data:
+if config["options"]["download_sat_data"]:
     download_TROPOMI(GC_startdate, GC_enddate, Sat_datadir)
 
 # ==== read Satellite ===
@@ -523,8 +521,13 @@ for index in range(len(allfiles)):
 
 Sat_files.sort()
 print("Number of files", len(Sat_files))
+file_indices = (
+    list(range(({run_num} - 1) * 1000, {run_num} * 1000))
+    if config["options"]["use_parallelism"]
+    else list(range(len(Sat_files)))
+)
 
-for index in list(range(({run_num} - 1) * 1000, {run_num} * 1000)):
+for index in file_indices:
     print("========================")
     filename = Sat_files[index]
     temp = re.split("\/", filename)[-1]
@@ -533,6 +536,11 @@ for index in list(range(({run_num} - 1) * 1000, {run_num} * 1000)):
     if os.path.isfile(outputdir + date + "_GCtoTROPOMI.pkl"):
         continue
     result = use_AK_to_GC(
-        filename, GC_startdate, GC_enddate, use_Sensi=use_Sensi, xlim=xlim, ylim=ylim
+        filename,
+        GC_startdate,
+        GC_enddate,
+        use_Sensi=config["options"]["use_sensi"],
+        xlim=xlim,
+        ylim=ylim,
     )
     save_obj(result, outputdir + date + "_GCtoTROPOMI.pkl")

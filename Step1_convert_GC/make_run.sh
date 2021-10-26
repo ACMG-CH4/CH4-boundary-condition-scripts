@@ -10,5 +10,6 @@ INP="template_archive.py"
 sed -e "s/{run_num}/$index/ig"  $INP > tmp.input
 mv tmp.input "run_"$index".py"
 
-sbatch "optim_"$index".sh"
+# TODO: enable sbatch on aws
+# sbatch "optim_"$index".sh"
 done
