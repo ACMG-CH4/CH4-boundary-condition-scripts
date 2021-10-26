@@ -4,7 +4,7 @@ slurm-*
 slurm-*
 *.ipynb
 Daily_CH4.nc
-Rplots.pdf
+Rplots*
 Bias_4x5_dk_2_updated.nc
 .vscode
 __pycache__

@@ -35,11 +35,10 @@ def daterange(date1, date2):
         yield date1 + timedelta(n)
         
 #==================================================  
-workdir="/n/holyscratch01/jacob_lab/lestrada/IMI/"
-GC_datadir="/n/holyscratch01/jacob_lab/lshen/CH4/GEOS-Chem/Flexgrid_global/Global_4x5/OutputDir/"
-# "/n/holyscratch01/jacob_lab/dvaron/archive/production_output_data/CH4_Jacobian_0000/OutputDir/"
-data_converted=workdir+"data_converted_BC1/"
-outputdir=workdir+"Step2_regrid_fast/"
+workdir="/home/ubuntu/"
+GC_datadir="/home/ubuntu/run_GC/OutputDir/"
+data_converted=workdir+"data_converted_BC/"
+outputdir=workdir+"CH4-boundary-condition-scripts/Step2_regrid_fast/"
 
 GC_data=glob.glob(GC_datadir+'GEOSChem.SpeciesConc*.nc4')[0]
 data=xr.open_dataset(GC_data)
@@ -50,8 +49,8 @@ data.close()
 #LON=np.arange(-180,180+0.625,0.625)
 #LAT=np.arange(-90,90+0.5,0.5)
 
-start_dt = date(2018, 5, 1)
-end_dt = date(2020, 2, 28)
+start_dt = date(2020, 6, 1)
+end_dt = date(2020, 6, 7)
 alldates=[]
 for dt in daterange(start_dt, end_dt):
     alldates.append(dt.strftime("%Y%m%d"))
@@ -74,7 +73,6 @@ print("Number of files",len(files))
 
 index=12
 for index in range(len(files)):
-    print(index)
     filename=files[index]    
     temp=re.split('\/', filename)[-1]
     date=re.split('\.|_+|T',temp)[4]
