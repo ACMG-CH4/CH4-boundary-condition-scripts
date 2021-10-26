@@ -7,7 +7,6 @@
 #SBATCH --mail-type=END
 
 #export OMP_NUM_THREADS=$SLURM_NTASKS
-export PYTHONPATH="/home/ubuntu/CH4-boundary-condition-scripts"
 python -u run_{run_num}.py
 exit 0
 #EOC

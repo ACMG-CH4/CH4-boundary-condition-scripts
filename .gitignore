@@ -8,3 +8,4 @@ Rplots*
 Bias_4x5_dk_2_updated.nc
 .vscode
 __pycache__
+smoothed-boundary-conditions/*
