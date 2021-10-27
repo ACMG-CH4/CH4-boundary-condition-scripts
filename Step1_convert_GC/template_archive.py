@@ -9,7 +9,7 @@ import os
 import pandas as pd
 import datetime
 from shapely.geometry import Polygon
-from utilities.utils import download_TROPOMI, read_config_file
+from utilities.utils import mkdir, download_TROPOMI, read_config_file
 
 # ----- define function -------
 def save_obj(obj, name):
@@ -84,7 +84,7 @@ def read_tropomi(filename):
     # Store vertical pressure profile
     N1 = met["methane"].shape[0]
     N2 = met["methane"].shape[1]
-    pressures = np.zeros([N1, N2, 13], dtype=np.float)
+    pressures = np.zeros([N1, N2, 13], dtype=float)
     pressures.fill(np.nan)
     for i in range(12 + 1):
         pressures[:, :, i] = surface_pressure - i * pressure_interval
@@ -296,6 +296,8 @@ def use_AK_to_GC(
         & (TROPOMI["qa_value"] >= 0.5)
         # & (kuadu <= 10) # breaks it with 2 dimensions
     )
+    # need to do this seperately to prevent broadcast error
+    sat_ind = np.where(kuadu <= 10) 
 
     NN = len(sat_ind[0])
     print(NN)
@@ -531,6 +533,7 @@ file_indices = (
     else list(range(len(Sat_files)))
 )
 
+mkdir(outputdir)
 for index in file_indices:
     print("========================")
     filename = Sat_files[index]

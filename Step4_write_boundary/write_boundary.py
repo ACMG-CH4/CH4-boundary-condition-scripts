@@ -12,7 +12,9 @@ config = read_config_file(config_filename)
 outputDir = config["paths"]["workdir"] + "smoothed-boundary-conditions"
 os.chdir(config["paths"]["GC_datadir"])
 file1 = xr.open_dataset(
-    config["paths"]["workdir"] + "Bias_4x5_dk_2_updated.nc"
+    config["paths"]["workdir"]
+    + "Step3_correct_background/"
+    + "Bias_4x5_dk_2_updated.nc"
 )
 upload_to_s3 = True
 all_Bias = file1["Bias"].values * 1e-9

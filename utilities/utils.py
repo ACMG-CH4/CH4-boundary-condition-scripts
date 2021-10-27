@@ -220,7 +220,7 @@ def upload_boundary_conditions(directory, s3_path):
         f.write("\n")
 
     os.chmod(DATA_UPLOAD_SCRIPT, 0o755)
-    print("Uploading TROPOMI data from AWS")
+    print("Uploading Boundary Conditions data to AWS")
     # Run the data upload script and remove the script afterwards
     status = subprocess.call(DATA_UPLOAD_SCRIPT)
     os.remove(DATA_UPLOAD_SCRIPT)
