@@ -8,7 +8,6 @@ import pickle
 import os
 import pandas as pd 
 import datetime
-from shapely.geometry import Polygon
 
 #----- define function -------
 def save_obj(obj, name ):
@@ -21,35 +20,54 @@ def load_obj(name):
     
 def read_tropomi(filename):
     met={}
-    data=xr.open_dataset(filename)
+    data=xr.open_dataset(filename,group="PRODUCT")
+    met['methane']  = data['methane_mixing_ratio_bias_corrected'].values[0,:,:]# 3245x215
+    met['qa_value'] = data['qa_value'].values[0,:,:]# 3245x215
+    met['longitude']= data['longitude'].values[0,:,:]# 3245x215
+    met['latitude'] = data['latitude'].values[0,:,:]# 3245x215
+    referencetime   = data['time'].values # This is the reference time
+    delta_time      = data['delta_time'][0].values # 3245x1
+    strdate=[]
+    if delta_time.dtype=='<m8[ns]':
+        strdate=referencetime+delta_time
+    elif delta_time.dtype=='<M8[ns]':
+        strdate=delta_time
+    else:
+        print(delta_time.dtype)
+        pass
+    timeshift=np.array(met['longitude']/15*60,dtype=int)#convert to minutes
+    met['utctime']=strdate
+    
+    localtimes=np.zeros(shape=timeshift.shape,dtype='datetime64[ns]')
+    for kk in range(timeshift.shape[0]):
+        #item=pd.to_timedelta(timeshift[kk,:], unit='m')
+        #localtimes[kk,:]=strdate[kk]+item.values
+        localtimes[kk,:]=strdate[kk]
     data.close()
-    met['methane']  = data['xch4_corrected'].values# 51975
-    met['qa_value'] = data['qa_value'].values# 51975
-    met['longitude']= data['longitude_center'].values# 51975
-    met['latitude'] = data['latitude_center'].values# 51975
-    met['surface_albedo']=data['surface_albedo'].values
-    met['aerosol_optical_thickness']=data['aerosol_optical_thickness'].values        
-    met['surface_altitude']=data['surface_altitude'].values
-    met['surface_altitude_stdv']=data['surface_altitude_stdv'].values
-    dates = pd.DataFrame(data['time'].values[:,:-1],
-                         columns=['year', 'month', 'day', 'hour', 'minute', 'second'])
-    dates = pd.to_datetime(dates)#.dt.strftime('%Y%m%dT%H%M%S')
-    met['utctime']=dates
-    met['localtime']=dates
-    met['column_AK']=data['xch4_column_averaging_kernel'].values[:,::-1]#51975x12    
-    met['methane_profile_apriori']=data['ch4_profile_apriori'].values[:,::-1]
-    pressure_interval=data['dp'].values #hPa
-    surface_pressure=data['surface_pressure'].values #hPa
-    met['dry_air_subcolumns']=data['dry_air_subcolumns'].values[:,::-1]
-    met['longitude_bounds']=data['longitude_corners'].values
-    met['latitude_bounds']=data['latitude_corners'].values    
+        
+    met['localtime']=localtimes
+    
+    data=xr.open_dataset(filename,group="PRODUCT/SUPPORT_DATA/DETAILED_RESULTS")
+    met['column_AK']=data['column_averaging_kernel'].values[0,:,:,::-1]
+    data.close()
+    
+    data=xr.open_dataset(filename,group="PRODUCT/SUPPORT_DATA/INPUT_DATA")
+    met['methane_profile_apriori']=data['methane_profile_apriori'].values[0,:,:,::-1]#mol m-2
+    pressure_interval=data['pressure_interval'].values[0,:,:]/100#Pa->hPa
+    surface_pressure=data['surface_pressure'].values[0,:,:]/100
+    met['dry_air_subcolumns']=data['dry_air_subcolumns'].values[0,:,:,::-1]#Pa -> hPa
+    data.close()
+    
     N1=met['methane'].shape[0]
-    pressures=np.zeros([N1,13], dtype=np.float)
+    N2=met['methane'].shape[1]
+
+    pressures=np.zeros([N1,N2,13], dtype=np.float)
     pressures.fill(np.nan)
     for i in range(12+1):
-        pressures[:,i]=surface_pressure-i*pressure_interval
+        pressures[:,:,i]=surface_pressure-i*pressure_interval
     
-    met['pressures']=pressures    
+    met['pressures']=pressures
+    
     return met    
 
 
@@ -82,13 +100,17 @@ def read_GC(date,use_Sensi=False):
     TROPP = data['Met_TropLev'].values[0,:,:];
     TROPP=np.einsum('ij->ji',TROPP)
     data.close()    
+
+    #--- correct the stratospheric ozone -----
+    lat_loc=np.zeros(len(LAT),dtype=int)
+    for j in range(len(LAT)):
+        lat_loc[j]=np.argmin(abs(lat_mid - LAT[j]))
         
-    #--- read base GC -----
     CH4_adjusted=CH4.copy()
     for i in range(len(LON)):
         for j in range(len(LAT)):
             l=int(TROPP[i,j])
-            ind=np.where(lat_mid == LAT[j])[0][0]### find the location of lat in lat_mid        
+            ind=lat_loc[j]
             CH4_adjusted[i,j,l:]=CH4[i,j,l:]*lat_ratio[ind,month-1]
 
     met={}
@@ -105,9 +127,11 @@ def read_GC(date,use_Sensi=False):
         data=xr.open_dataset(filename)
         Sensi=data['Sensi'].values
         Sensi=np.einsum('klji->ijlk',Sensi)
-        data.close()
-        #--- now adjust the Sensitivity
-        Sensi=Sensi*2#Because we perturb the emissions by 50%
+        data.close()  
+        for i in range(len(LON)):
+            for j in range(len(LAT)):
+                l=int(TROPP[i,j])
+                Sensi[i,j,l:,:]=Sensi[i,j,l:,:]*lat_ratio[j,month-1]
         met['Sensi']=Sensi
 
     return met
@@ -214,19 +238,15 @@ def remap2(Sensi, data_type, Com_p, location, first_2):
     
     return Sat_CH4
 
-def use_AK_to_GC(filename,GC_startdate, GC_enddate, use_Sensi,xlim,ylim,):
+def use_AK_to_GC(filename,GC_startdate, GC_enddate, use_Sensi=False):
     TROPOMI=read_tropomi(filename)#read TROPOMI data
-    kuadu=np.max(TROPOMI['longitude_bounds'],1) - np.min(TROPOMI['longitude_bounds'],1)
-    sat_ind=np.where((TROPOMI['longitude']>xlim[0]) & (TROPOMI['longitude']<xlim[1]) & (TROPOMI['latitude']>ylim[0]) & (TROPOMI['latitude']<ylim[1]) & (TROPOMI['qa_value']>=0.5) & (TROPOMI['utctime']>=GC_startdate) & (TROPOMI['utctime']<=GC_enddate) &  (TROPOMI['methane']<=3000) & (kuadu<=10) )
+
+    sat_ind=np.where((TROPOMI['qa_value']>=0.5) & (TROPOMI['localtime']>=GC_startdate) & (TROPOMI['localtime']<=GC_enddate))     
     NN=len(sat_ind[0])
-    print(NN)
     if use_Sensi:
-        MM=N_pert
+        MM=1009
         temp_KK=np.zeros([NN,MM],dtype=np.float32)#Store the K
-        temp_KK.fill(np.nan)
-        
-    temp_obs_GC=np.zeros([NN,6+6],dtype=np.float32)#TROPOMI-CH4, GC-CH4, longitude,latitude, II, JJ
-    temp_obs_GC.fill(np.nan)
+    temp_obs_GC=np.zeros([NN,6],dtype=np.float32)#TROPOMI-CH4, GC-CH4, longitude,latitude, II, JJ
     
     #================================
     #--- now compute sensitivity ---
@@ -235,98 +255,61 @@ def use_AK_to_GC(filename,GC_startdate, GC_enddate, use_Sensi,xlim,ylim,):
     all_strdate=[]
     for iNN in range(NN):
         iSat=sat_ind[0][iNN]
-        localtime=TROPOMI['utctime'][iSat]
+        jSat=sat_ind[1][iNN]
+        timeshift=int(TROPOMI['longitude'][iSat,jSat]/15*60)
+        timeshift=0#Now I use UTC time instead of local time
+        localtime=TROPOMI['utctime'][iSat]+np.timedelta64(timeshift,'m')#local time
         localtime=pd.to_datetime(str(localtime))
+        #strdate=localtime.strftime("%Y%m%d_%H")
         strdate=localtime.round('60min').strftime("%Y%m%d_%H")        
         all_strdate.append(strdate)
 
     all_strdate=list(set(all_strdate))    
     all_date_GC=read_all_GC(all_strdate,use_Sensi)
     
+    #temp_obs_GC=np.zeros([NN,4],dtype=np.float32)#
     for iNN in range(NN):
         iSat=sat_ind[0][iNN]
-        Sat_p=TROPOMI['pressures'][iSat,:]
-        dry_air_subcolumns=TROPOMI['dry_air_subcolumns'][iSat,:]#mol m-2
-        priori=TROPOMI['methane_profile_apriori'][iSat,:]
-        AK=TROPOMI['column_AK'][iSat,:]
+        jSat=sat_ind[1][iNN]
+        Sat_p=TROPOMI['pressures'][iSat,jSat,:]
+        dry_air_subcolumns=TROPOMI['dry_air_subcolumns'][iSat,jSat,:]#mol m-2
+        priori=TROPOMI['methane_profile_apriori'][iSat,jSat,:]
+        AK=TROPOMI['column_AK'][iSat,jSat,:]
 
+        timeshift=int(TROPOMI['longitude'][iSat,jSat]/15*60)
         timeshift=0
         localtime=TROPOMI['utctime'][iSat]+np.timedelta64(timeshift,'m')#local time
         localtime=pd.to_datetime(str(localtime))
+        #strdate=localtime.strftime("%Y%m%d")        
         strdate=localtime.round('60min').strftime("%Y%m%d_%H")        
         GC=all_date_GC[strdate]
-                        
-        #===========
-        longitude_bounds=TROPOMI['longitude_bounds'][iSat,:]
-        latitude_bounds=TROPOMI['latitude_bounds'][iSat,:]
-        corners_lon=[];corners_lat=[]
-        for k in range(4):
-            iGC=nearest_loc(longitude_bounds[k], GC['lon'])
-            jGC=nearest_loc(latitude_bounds[k], GC['lat'])
-            corners_lon.append(iGC)
-            corners_lat.append(jGC)
-
-        GC_ij=[(x,y) for x in set(corners_lon) for y in set(corners_lat)]
-        GC_grids=[(GC['lon'][i], GC['lat'][j]) for i,j in GC_ij]
+                
+        iGC=np.abs(GC['lon']-TROPOMI['longitude'][iSat,jSat]).argmin()
+        jGC=np.abs(GC['lat']-TROPOMI['latitude'][iSat,jSat]).argmin()
+        GC_p=GC['PEDGE'][iGC,jGC,:]
         
-        overlap_area=np.zeros(len(GC_grids))
-        dlon=GC['lon'][3]-GC['lon'][2]
-        dlat=GC['lat'][3]-GC['lat'][2]
-        p0=Polygon(np.column_stack((longitude_bounds,latitude_bounds)))
+        if(abs(Sat_p[0]-GC_p[0])>=250):
+            print('surface pressure large discrepancy',Sat_p[0]-GC_p[0])
         
-        for ipixel in range(len(GC_grids)):
-            item=GC_grids[ipixel]
-            ap1=[item[0]-dlon/2, item[0]+dlon/2, item[0]+dlon/2, item[0]-dlon/2]
-            ap2=[item[1]-dlat/2, item[1]-dlat/2, item[1]+dlat/2, item[1]+dlat/2]        
-            p2=Polygon(np.column_stack((ap1,ap2)))
-            if p2.intersects(p0):
-                  overlap_area[ipixel]=p0.intersection(p2).area
+        GC_CH4=GC['CH4_adjusted'][iGC,jGC,:]
+        ww=cal_weights(Sat_p, GC_p)
+        Sat_CH4=remap(GC_CH4, ww['data_type'], ww['Com_p'], ww['location'], ww['first_2'])
+        Sat_CH4_2=Sat_CH4*1e-9*dry_air_subcolumns ##convert ppb to pressure mol m-2
+        GC_base_posteri=sum(priori+AK*(Sat_CH4_2-priori))/sum(dry_air_subcolumns)*1e9
 
-        if sum(overlap_area)==0:
-            continue                  
-
-        #===========
-        GC_base_posteri=0
-        GC_base_sensi=0
-        for ipixel in range(len(GC_grids)):
-            iGC,jGC=GC_ij[ipixel]
-            GC_p=GC['PEDGE'][iGC,jGC,:]                
-            GC_CH4=GC['CH4_adjusted'][iGC,jGC,:]
-            ww=cal_weights(Sat_p, GC_p)
-            Sat_CH4=remap(GC_CH4, ww['data_type'], ww['Com_p'], ww['location'], ww['first_2'])
-            Sat_CH4_2=Sat_CH4*1e-9*dry_air_subcolumns ##convert ppb to pressure mol m-2
-            GC_base_posteri=GC_base_posteri+overlap_area[ipixel]*sum(priori+AK*(Sat_CH4_2-priori))/sum(dry_air_subcolumns)*1e9
-            if use_Sensi:            
-                #GC_base_sensi=GC_base_sensi+overlap_area[ipixel]*GC['Sensi'][iGC,jGC,:]
-                """
-                pedge=GC['PEDGE'][iGC,jGC,:]
-                pp=pedge[:47]-pedge[1:]
-                pedges=np.transpose(np.tile(pp,(MM,1)))
-                ap=GC['Sensi'][iGC,jGC,:,:]*pedges                                
-                Sensi=np.sum(ap,0)/(pedge[0]-pedge[-1])
-                GC_base_sensi=GC_base_sensi+overlap_area[ipixel]*Sensi
-                """
-                Sensi=GC['Sensi'][iGC,jGC,:,:]
-                Sat_CH4=remap2(Sensi, ww['data_type'], ww['Com_p'], ww['location'], ww['first_2'])                
-                AKs=np.transpose(np.tile(AK,(MM,1)))
-                dry_air_subcolumns_s=np.transpose(np.tile(dry_air_subcolumns,(MM,1)))
-                ap=np.sum(AKs*Sat_CH4*dry_air_subcolumns_s,0)/sum(dry_air_subcolumns)
-                GC_base_sensi=GC_base_sensi+overlap_area[ipixel]*ap
-                                
-        temp_obs_GC[iNN,0]=TROPOMI['methane'][iSat]#TROPOMI methane
-        temp_obs_GC[iNN,1]=GC_base_posteri/sum(overlap_area) # GC methane
-        temp_obs_GC[iNN,2]=TROPOMI['longitude'][iSat] #TROPOMI longitude
-        temp_obs_GC[iNN,3]=TROPOMI['latitude'][iSat]  #TROPOMI latitude 
+        temp_obs_GC[iNN,0]=TROPOMI['methane'][iSat,jSat]#TROPOMI methane
+        temp_obs_GC[iNN,1]=GC_base_posteri # GC methane
+        temp_obs_GC[iNN,2]=TROPOMI['longitude'][iSat,jSat] #TROPOMI longitude
+        temp_obs_GC[iNN,3]=TROPOMI['latitude'][iSat,jSat]  #TROPOMI latitude 
         temp_obs_GC[iNN,4]=iSat #TROPOMI index of longitude
-        temp_obs_GC[iNN,5]=0 #TROPOMI index of lattitude
-        temp_obs_GC[iNN,6]=TROPOMI['surface_altitude'][iSat] #TROPOMI index of lattitude        
-        temp_obs_GC[iNN,7]=TROPOMI['surface_albedo'][iSat,0] #TROPOMI index of lattitude
-        temp_obs_GC[iNN,8]=TROPOMI['surface_albedo'][iSat,1] #TROPOMI index of lattitude
-        temp_obs_GC[iNN,9]=TROPOMI['surface_altitude_stdv'][iSat]
-        temp_obs_GC[iNN,10]=TROPOMI['aerosol_optical_thickness'][iSat,0] #AOT for NIR
-        temp_obs_GC[iNN,11]=TROPOMI['aerosol_optical_thickness'][iSat,1] #AOT for SWIR
+        temp_obs_GC[iNN,5]=jSat #TROPOMI index of lattitude
         if use_Sensi:
-            temp_KK[iNN,:]=GC_base_sensi/sum(overlap_area)
+            Sensi=GC['Sensi'][iGC,jGC,:,:]
+            Sat_CH4=remap2(Sensi, ww['data_type'], ww['Com_p'], ww['location'], ww['first_2'])
+            AKs=np.transpose(np.tile(AK,(MM,1)))
+            dry_air_subcolumns_s=np.transpose(np.tile(dry_air_subcolumns,(MM,1)))
+            temp_KK[iNN,:]=np.sum(AKs*Sat_CH4*dry_air_subcolumns_s,0)/sum(dry_air_subcolumns)
+
         
     result={}
     if use_Sensi:
@@ -335,45 +318,25 @@ def use_AK_to_GC(filename,GC_startdate, GC_enddate, use_Sensi,xlim,ylim,):
     result['obs_GC']=temp_obs_GC
         
     return result
-
-
-def nearest_loc(loc0,table,tolerance=5):
-    temp=np.abs(table-loc0)
-    ind=temp.argmin()
-    if temp[ind]>=tolerance:
-        return np.nan
-    else:
-        return ind
-
+    
 #==============================================================================
 #===========================Define functions ==================================
 #==============================================================================
-use_Sensi = False
-N_pert=156
-xlim=[-180, 180]
-ylim=[-90, 90]
-
-workdir="/n/holyscratch01/jacob_lab/lshen/CH4/GEOS-Chem/Flexgrid_global/CPU_global_Lorente/"
+use_Sensi = False    
+workdir="/n/holyscratch01/jacob_lab/lshen/CH4/GEOS-Chem/Flexgrid/CPU_global/"
 Sat_datadir=workdir+"data_TROPOMI/"
 GC_datadir=workdir+"data_GC/"
 outputdir=workdir+"data_converted/"
 Sensi_datadir=workdir+"Sensi/"
 
 os.chdir(workdir+"Step1_convert_GC")
-
-#==== read GC lon and lat ===
-data=xr.open_dataset(glob.glob(GC_datadir+"*.nc4")[0])
-GC_lon=data['lon'].values
-GC_lat=data['lat'].values
-data.close()
-
 #==== read lat_ratio ===
 df=pd.read_csv("./lat_ratio.csv",index_col=0)
-lat_mid=df.index
-lat_ratio=df.values
+lat_mid=np.array(df.index)
+lat_ratio=np.array(df.values)
 
-GC_startdate=datetime.datetime.strptime("2018-05-01 00:00:00", '%Y-%m-%d %H:%M:%S')
-GC_enddate=datetime.datetime.strptime("2020-02-28 23:59:59", '%Y-%m-%d %H:%M:%S')
+GC_startdate=datetime.datetime.strptime("2019-12-30 00:00:00", '%Y-%m-%d %H:%M:%S')
+GC_enddate=datetime.datetime.strptime("2020-05-29 23:59:59", '%Y-%m-%d %H:%M:%S')
 GC_startdate=np.datetime64(GC_startdate)
 GC_enddate=np.datetime64(GC_enddate)
 
@@ -392,7 +355,8 @@ for index in range(len(allfiles)):
 Sat_files.sort()
 print("Number of files",len(Sat_files))
 
-for index in list(range(({run_num}-1)*1000,{run_num}*1000)):
+index=1
+for index in range(({run_num}-1)*200,{run_num}*200):
     print('========================')
     filename=Sat_files[index]    
     temp=re.split('\/', filename)[-1]
@@ -400,5 +364,5 @@ for index in list(range(({run_num}-1)*1000,{run_num}*1000)):
     date=re.split('\.',temp)[0]
     if os.path.isfile(outputdir+date+'_GCtoTROPOMI.pkl'):
         continue
-    result=use_AK_to_GC(filename,GC_startdate,GC_enddate,use_Sensi=use_Sensi,xlim=xlim,ylim=ylim)
+    result=use_AK_to_GC(filename,GC_startdate,GC_enddate)
     save_obj(result,outputdir+date+'_GCtoTROPOMI.pkl')

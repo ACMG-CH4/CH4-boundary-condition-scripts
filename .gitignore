@@ -1,5 +1,14 @@
 Step1_convert_GC/run_*
 Step1_convert_GC/optim_*
-Step1_convert_GC/slurm-*
-Step2_regrid_fast/slurm-*
-
+slurm-*
+slurm-*
+*.ipynb
+Daily_CH4.nc
+Rplots*
+Bias_4x5_dk_2_updated.nc
+.vscode
+__pycache__
+smoothed-boundary-conditions/*
+TROPOMI_data/*
+data_converted_BC/*
+*.DS_Store
