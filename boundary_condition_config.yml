@@ -1,0 +1,17 @@
+---
+# =====================================================================
+# Boundary condition configuration file (**EDIT AS NEEDED**)
+# =====================================================================
+# paths needed for various scripts
+paths:
+  workdir: /home/ubuntu/CH4-boundary-condition-scripts/
+  GC_datadir: /home/ubuntu/run_GC/OutputDir/
+  outputBucket: s3://imi-boundary-conditions/test
+options:
+  # must be in YYYY-mm-dd HH:MM:SS format
+  startdate: "2020-06-01 00:00:00" 
+  enddate: "2020-06-07 00:00:00"
+  download_sat_data: False # is the tropomi data downloaded?
+  upload_to_s3: False # upload resulting boundary conditions to s3?
+  use_sensi: False # sensitivities
+  use_parallelism: False # currently must be false on aws TODO: set up sbatch on aws

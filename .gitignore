@@ -9,3 +9,5 @@ Bias_4x5_dk_2_updated.nc
 .vscode
 __pycache__
 smoothed-boundary-conditions/*
+TROPOMI_data/*
+data_converted_BC/*

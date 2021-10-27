@@ -1,5 +1,6 @@
 import os
 import subprocess
+import yaml
 
 
 def download_TROPOMI(startdate, enddate, Sat_datadir):
@@ -223,3 +224,21 @@ def upload_boundary_conditions(directory, s3_path):
     # Run the data upload script and remove the script afterwards
     status = subprocess.call(DATA_UPLOAD_SCRIPT)
     os.remove(DATA_UPLOAD_SCRIPT)
+
+def read_config_file(config_file):
+    """
+    Reads configuration information from a YAML file.
+    Arguments
+        directory   [str]  : path to yaml file
+    Return
+        a dictionary of configuration variables
+    """
+    # Read the configuration file in YAML format
+    try:
+        print(f"Using configuration file {config_file}")
+        config = yaml.safe_load(open(config_file))
+    except Exception as err:
+        msg = f"Error reading configuration in {config_file}: {err}"
+        raise Exception(msg)
+
+    return config

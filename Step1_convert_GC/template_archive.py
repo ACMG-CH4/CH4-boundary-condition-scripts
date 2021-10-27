@@ -473,9 +473,9 @@ def nearest_loc(loc0, table, tolerance=5):
 # ==============================================================================
 # ===========================Define functions ==================================
 # ==============================================================================
-config = read_config_file(
-    "/home/ubuntu/CH4-boundary-condition-scripts/boundary_condition_config.yml"
-)["step1"]
+# get the config filename and read the yaml file
+config_filename = os.getcwd().rsplit("/", 1)[0] + "/boundary_condition_config.yml"
+config = read_config_file(config_filename)
 N_pert = 156
 xlim = [-180, 180]
 ylim = [-90, 90]
@@ -484,7 +484,7 @@ Sat_datadir = config["paths"]["workdir"] + "TROPOMI_data/"
 outputdir = config["paths"]["workdir"] + "data_converted_BC/"
 Sensi_datadir = config["paths"]["workdir"] + "Sensi/"
 
-os.chdir(config["paths"]["scriptdir"] + "Step1_convert_GC")
+os.chdir(config["paths"]["workdir"] + "Step1_convert_GC")
 
 # ==== read GC lon and lat ===
 data = xr.open_dataset(glob.glob(config["paths"]["GC_datadir"] + "*.nc4")[0])
@@ -497,8 +497,12 @@ df = pd.read_csv("./lat_ratio.csv", index_col=0)
 lat_mid = df.index
 lat_ratio = df.values
 
-GC_startdate = datetime.datetime.strptime("2020-06-01 00:00:00", "%Y-%m-%d %H:%M:%S")
-GC_enddate = datetime.datetime.strptime("2020-07-01 00:00:00", "%Y-%m-%d %H:%M:%S")
+GC_startdate = datetime.datetime.strptime(
+    config["options"]["startdate"], "%Y-%m-%d %H:%M:%S"
+)
+GC_enddate = datetime.datetime.strptime(
+    config["options"]["enddate"], "%Y-%m-%d %H:%M:%S"
+)
 GC_startdate = np.datetime64(GC_startdate)
 GC_enddate = np.datetime64(GC_enddate)
 

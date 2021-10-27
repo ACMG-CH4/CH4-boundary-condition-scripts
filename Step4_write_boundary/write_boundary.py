@@ -5,13 +5,14 @@ import re
 import xarray as xr
 import glob
 import os
-from utilities.utils import mkdir, upload_boundary_conditions
+from utilities.utils import mkdir, upload_boundary_conditions, read_config_file
 
-outputDir = "/home/ubuntu/CH4-boundary-condition-scripts/smoothed-boundary-conditions"
-outputBucket = "s3://imi-boundary-conditions/test"
-os.chdir("/home/ubuntu/run_GC/OutputDir")
+config_filename = os.getcwd().rsplit("/", 1)[0] + "/boundary_condition_config.yml"
+config = read_config_file(config_filename)
+outputDir = config["paths"]["workdir"] + "smoothed-boundary-conditions"
+os.chdir(config["paths"]["GC_datadir"])
 file1 = xr.open_dataset(
-    "/home/ubuntu/CH4-boundary-condition-scripts/Step3_correct_background/Bias_4x5_dk_2_updated.nc"
+    config["paths"]["workdir"] + "Bias_4x5_dk_2_updated.nc"
 )
 upload_to_s3 = True
 all_Bias = file1["Bias"].values * 1e-9
@@ -46,4 +47,4 @@ for ifile in range(len(files)):
 
 # upload files to s3
 if upload_to_s3:
-    upload_boundary_conditions(outputDir, outputBucket)
+    upload_boundary_conditions(outputDir, config["paths"]["outputBucket"])
