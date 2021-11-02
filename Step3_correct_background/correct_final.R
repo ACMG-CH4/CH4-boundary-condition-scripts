@@ -99,7 +99,7 @@ avg1=apply(bias_4x5,c(1,2),mean,na.rm=T)
 avg2=apply(bias_4x5_new,c(1,2),mean,na.rm=T)
 # plot.field(avg1-avg2, lon.out, lat.out,type="sign",zlim=c(-10,10))
 
-mean(bias_4x5_new)
+print(mean(bias_4x5_new))
 
 #============================================
 #============================================
