@@ -21,6 +21,17 @@ def load_obj(name):
     with open(name, "rb") as f:
         return pickle.load(f)
 
+# test if the file can be opened
+def file_is_corrupt(filename):
+    try:
+        f = xr.open_dataset(filename)
+        f.close()
+        return False
+    except:
+        print(f"{filename} could not be opened. Skipping file")
+        return True
+
+
 
 def read_tropomi(filename):
     met = {}
@@ -297,7 +308,7 @@ def use_AK_to_GC(
         # & (kuadu <= 10) # breaks it with 2 dimensions
     )
     # need to do this seperately to prevent broadcast error
-    sat_ind = np.where(kuadu <= 10) 
+    # sat_ind = np.where(kuadu <= 10) 
 
     NN = len(sat_ind[0])
     print(NN)
@@ -540,8 +551,16 @@ for index in file_indices:
     temp = re.split("\/", filename)[-1]
     print(temp)
     date = re.split("\.", temp)[0]
-    if os.path.isfile(outputdir + date + "_GCtoTROPOMI.pkl"):
+    if os.path.isfile(outputdir + date + "_GCtoTROPOMI.pkl") or file_is_corrupt(filename):
         continue
+    # test if the file can be opened, if corrupted continue to the next file.
+    try:
+        f = xr.open_dataset(filename)
+        f.close()
+    except:
+        print(f"{temp} could not be opened. Skipping file")
+        continue
+
     result = use_AK_to_GC(
         filename,
         GC_startdate,

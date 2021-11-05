@@ -9,8 +9,8 @@ paths:
   outputBucket: s3://imi-boundary-conditions/test
 options:
   # must be in YYYY-mm-dd HH:MM:SS format
-  startdate: "2020-05-01 00:00:00" 
-  enddate: "2020-05-07 00:00:00"
+  startdate: "2020-04-01 00:00:00" 
+  enddate: "2020-05-30 00:00:00"
   download_sat_data: False # is the tropomi data downloaded?
   upload_to_s3: True # upload resulting boundary conditions to s3?
   use_sensi: False # sensitivities
