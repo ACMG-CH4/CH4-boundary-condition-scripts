@@ -16,7 +16,7 @@ file1 = xr.open_dataset(
     + "Step3_correct_background/"
     + "Bias_4x5_dk_2_updated.nc"
 )
-upload_to_s3 = True
+upload_to_s3 = config["options"]["upload_to_s3"]
 all_Bias = file1["Bias"].values * 1e-9
 strdate = file1["time"].values
 file1.close()
@@ -50,3 +50,5 @@ for ifile in range(len(files)):
 # upload files to s3
 if upload_to_s3:
     upload_boundary_conditions(outputDir, config["paths"]["outputBucket"])
+else: 
+    print("skipping s3 upload")
