@@ -11,4 +11,3 @@ __pycache__
 smoothed-boundary-conditions/*
 TROPOMI_data/*
 data_converted_BC/*
-*.DS_Store
