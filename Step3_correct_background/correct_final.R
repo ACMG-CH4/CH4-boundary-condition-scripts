@@ -84,7 +84,6 @@ bias_avg_base_smoothed = smooth_2D(bias_avg_base)#smoothed 2D average bias
 
 bias_4x5_new=array(NA,dim(bias_4x5))
 for(index in 1:dim(bias_4x5)[3]){
-  print(index)
   temp= bias_4x5[,,index]
   ind1=(is.na(temp) & !is.na(bias_avg_base)) # if it is over the continent, fill with mean bias
   temp[ind1]= bias_avg_base[ind1]
@@ -94,10 +93,6 @@ for(index in 1:dim(bias_4x5)[3]){
 bias_4x5_new[bias_4x5_new>=30]=30
 bias_4x5_new[bias_4x5_new<=-30]=-30
 
-dev.new(width=5,height=2.8)
-avg1=apply(bias_4x5,c(1,2),mean,na.rm=T)
-avg2=apply(bias_4x5_new,c(1,2),mean,na.rm=T)
-# plot.field(avg1-avg2, lon.out, lat.out,type="sign",zlim=c(-10,10))
 
 print(mean(bias_4x5_new))
 

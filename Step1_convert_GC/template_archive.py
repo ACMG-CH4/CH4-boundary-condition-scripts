@@ -450,17 +450,17 @@ def use_AK_to_GC(
             iSat, jSat
         ]  # TROPOMI index of lattitude
         temp_obs_GC[iNN, 7] = TROPOMI["surface_albedo"][
-            iSat, 0
+            iSat, jSat
         ]  # TROPOMI index of lattitude
         temp_obs_GC[iNN, 8] = TROPOMI["surface_albedo"][
-            iSat, 1
+            iSat, jSat
         ]  # TROPOMI index of lattitude
         temp_obs_GC[iNN, 9] = TROPOMI["surface_altitude_stdv"][iSat, jSat]
         temp_obs_GC[iNN, 10] = TROPOMI["aerosol_optical_thickness"][
-            iSat, 0
+            iSat, jSat
         ]  # AOT for NIR
         temp_obs_GC[iNN, 11] = TROPOMI["aerosol_optical_thickness"][
-            iSat, 1
+            iSat, jSat
         ]  # AOT for SWIR
         if use_Sensi:
             temp_KK[iNN, :] = GC_base_sensi / sum(overlap_area)
