@@ -2,7 +2,6 @@ Step1_convert_GC/run_*
 Step1_convert_GC/optim_*
 slurm-*
 slurm-*
-*.ipynb
 Daily_CH4.nc
 Rplots*
 Bias_4x5_dk_2_updated.nc

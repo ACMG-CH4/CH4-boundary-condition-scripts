@@ -9,3 +9,5 @@ Scripts, originally developed by Lu Shen, to generate Tropomi smoothed fields fo
 4. cd into `Step2_regrid_fast` and run `./read_daily.py`. This will create a `Daily_CH4.nc`file in the `Step3_correct_background` directory.
 5. cd into the `Step3_correct_background` directory and run `Rscript correct_final.R`. This will create the Bias corrections file for CH4: `Bias_4x5_dk_2_updated.nc`.
 6. cd into `Step4_write_boundary` and run `./write_boundary.py`. If you have the `upload_to_s3` setting set to true in your config file, the created boundary conditions will be uploaded to s3 in the config-specified output bucket.
+
+Note: because tropomi data is hosted in a different aws region you will incur costs for downloading tropomi data.
