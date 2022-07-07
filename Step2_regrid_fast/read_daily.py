@@ -91,8 +91,10 @@ for index in range(len(files)):
 
     if NN == 0:
         continue
-
-    time_ind = alldates.index(date)
+    try: # continue if particular date isn't present
+        time_ind = alldates.index(date)
+    except:
+        continue
     for iNN in range(NN):
         c_OMI, c_GC, lon0, lat0 = obs_GC[iNN, :4]
         ii = nearest_loc(lon0, LON)

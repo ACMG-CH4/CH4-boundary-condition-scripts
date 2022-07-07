@@ -391,7 +391,11 @@ def use_AK_to_GC(
             ]
             p2 = Polygon(np.column_stack((ap1, ap2)))
             if p2.intersects(p0):
-                overlap_area[ipixel] = p0.intersection(p2).area
+                # catch invalid geometry errors
+                try:
+                    overlap_area[ipixel] = p0.intersection(p2).area
+                except:
+                    overlap_area[ipixel] = 0
 
         if sum(overlap_area) == 0:
             continue
