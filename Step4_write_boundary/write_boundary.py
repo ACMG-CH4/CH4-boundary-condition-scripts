@@ -41,7 +41,7 @@ for ifile in range(len(files)):
     np.mean(file2["SpeciesBC_CH4"].values)
     orig_data = file2["SpeciesBC_CH4"].values.copy()
     for t in range(orig_data.shape[0]):
-        for lev in range(orig_data.shape[1]):
+        for lev in range(47):
             orig_data[t, lev, :, :] = orig_data[t, lev, :, :] - Bias
     file2["SpeciesBC_CH4"].values = orig_data
     file2.to_netcdf(f"{outputDir}/{filename}")

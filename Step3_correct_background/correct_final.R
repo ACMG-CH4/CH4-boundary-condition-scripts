@@ -24,8 +24,13 @@ smooth_1D=function(y){
 	return(y2)
 }
 
+closest_valid_lat=function(lat, valid_lats){
+  closest_lat = which.min(abs(valid_lats-lat))
+  return(closest_lat)
+}
+
 #======================================================
-setwd("/home/ubuntu/CH4-boundary-condition-scripts/Step3_correct_background")
+setwd("/n/holyscratch01/jacob_lab/lestrada/IMI/CH4-boundary-condition-scripts/Step3_correct_background")
 
 datafile=nc_open("Daily_CH4.nc")
 TROPOMI.lon=ncvar_get(datafile,varid="lon")
@@ -71,6 +76,12 @@ bias_avg_base = apply(bias_4x5, c(1,2), mean, na.rm=TRUE)
 
 lat_bias_base=apply(bias_4x5,c(2),mean,na.rm=TRUE)
 lat_bias_base[45:46]= lat_bias_base[44]
+valid_lats = which(!is.na(lat_bias_base), arr.ind = TRUE)
+invalid_lats = which(is.na(lat_bias_base), arr.ind = TRUE)
+# replace any NA lat values with closest lat bias
+for(k in invalid_lats){ 
+  lat_bias_base[k] = lat_bias_base[closest_valid_lat(k, valid_lats)]
+}
 lat_bias_base =smooth_1D(lat_bias_base)
 
 for(k in 1:46){#fill ocean gridcells with lat bias
