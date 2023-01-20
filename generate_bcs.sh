@@ -14,7 +14,7 @@ export PYTHONPATH="/n/holyscratch01/jacob_lab/lestrada/IMI/CH4-boundary-conditio
 module load gcc/9.3.0-fasrc01 R/4.0.5-fasrc02
 
 cd Step1_convert_GC
-# ./template_archive.py
+./template_archive.py
 
 echo "Done with step 1"
 
