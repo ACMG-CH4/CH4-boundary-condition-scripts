@@ -107,4 +107,5 @@ print(bias_4x5_new.mean(skipna=True))
 
 # create dataset and export to netcdf file
 ds = bias_4x5_new.to_dataset(name="Bias")
+ds = ds.assign_coords({"time": date.values})
 ds.to_netcdf("Bias_4x5_dk_2_updated.nc")
