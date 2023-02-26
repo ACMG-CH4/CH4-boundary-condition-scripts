@@ -14,18 +14,18 @@ export PYTHONPATH="/n/holyscratch01/jacob_lab/lestrada/IMI/CH4-boundary-conditio
 module load gcc/9.3.0-fasrc01 R/4.0.5-fasrc02
 
 cd Step1_convert_GC
-./template_archive.py
+python template_archive.py
 
 echo "Done with step 1"
 
 cd ../Step2_regrid_fast
-./read_daily.py
+python read_daily.py
 
 echo "Done with step 2"
 
 cd ../Step3_correct_background
-Rscript correct_final.R
+python correct_final.R
 
 echo "Done with step 3"
 cd ../Step4_write_boundary
-./write_boundary.py
+python write_boundary.py
