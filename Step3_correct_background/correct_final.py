@@ -5,11 +5,9 @@ import xarray as xr
 # from tropomi/GC simulation and calculates the bias 
 # between the two using the latitudinal averages and 
 # spatial/temporal smoothing. 
-# This script is based off of the methods Lu Shen's 
-# original R script.
+# This script is based off of Lu Shen's 
+# methods/ R script.
 #######################################################
-
-
 
 # settings to adjust default smoothing windows
 # we use a +/- 15 day time window and 3x3
@@ -45,8 +43,7 @@ def smooth_3D_da(
     ).mean(skipna=True)
 
 
-# smooth out background data by
-# 3x3 lat/lon windows and +/-15 day window
+# dmooth the background GC and TROPOMI data
 GC_bkgd = GC_CH4.rolling(
     time=smoothing_time_window,
     lat=smoothing_lat_window,
