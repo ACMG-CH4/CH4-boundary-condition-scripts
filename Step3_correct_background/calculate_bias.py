@@ -43,22 +43,9 @@ def smooth_3D_da(
     ).mean(skipna=True)
 
 
-# dmooth the background GC and TROPOMI data
-GC_bkgd = GC_CH4.rolling(
-    time=smoothing_time_window,
-    lat=smoothing_lat_window,
-    lon=smoothing_lon_window,
-    min_periods=1,
-    center=True,
-).mean(skipna=True)
-
-TROPOMI_bkgd = OMI_CH4.rolling(
-    time=smoothing_time_window,
-    lat=smoothing_lat_window,
-    lon=smoothing_lon_window,
-    min_periods=1,
-    center=True,
-).mean(skipna=True)
+# smooth the background GC and TROPOMI data
+GC_bkgd = smooth_3D_da(GC_CH4)
+TROPOMI_bkgd = smooth_3D_da(OMI_CH4)
 
 # calculate bias between GC background CH4 and
 # TROPOMI observational background CH4

@@ -24,7 +24,7 @@ python read_daily.py
 echo "Done with step 2"
 
 cd ../Step3_correct_background
-python correct_final.R
+python calculate_bias.py
 
 echo "Done with step 3"
 cd ../Step4_write_boundary
