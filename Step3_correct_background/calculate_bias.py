@@ -22,7 +22,7 @@ daily_CH4 = xr.open_dataset(filepath)
 TROPOMI_lon = daily_CH4["lon"]
 TROPOMI_lat = daily_CH4["lat"]
 GC_CH4 = daily_CH4["GC"]
-OMI_CH4 = daily_CH4["CH4"]
+TROPOMI_CH4 = daily_CH4["CH4"]
 date = daily_CH4["date"]
 daily_CH4.close()
 
@@ -45,15 +45,14 @@ def smooth_3D_da(
 
 # smooth the background GC and TROPOMI data
 GC_bkgd = smooth_3D_da(GC_CH4)
-TROPOMI_bkgd = smooth_3D_da(OMI_CH4)
+TROPOMI_bkgd = smooth_3D_da(TROPOMI_CH4)
 
 # calculate bias between GC background CH4 and
 # TROPOMI observational background CH4
 bias_4x5 = GC_bkgd - TROPOMI_bkgd
 
 # build a smoothed dataset to fill in nan values of raw bias
-# start by smoothing the bias
-bias_avg_base = smooth_3D_da(bias_4x5)
+bias_avg_base = bias_4x5
 
 # create a dataarray with latitudinal average for each time step
 # we use nearest neighbor interpolation to fill in data gaps
