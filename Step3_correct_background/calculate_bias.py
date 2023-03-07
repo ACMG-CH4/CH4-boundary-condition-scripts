@@ -26,8 +26,30 @@ TROPOMI_CH4 = daily_CH4["CH4"]
 date = daily_CH4["date"]
 daily_CH4.close()
 
+# replace extreme outliers by finding values above the given percentile
+# using perc=.01 finds the highest negative bias and perc=.99 finds the 
+# highest positive bias
+def replace_outliers(data, perc=0.01):
+    # calculate percentile 
+    threshold = data.quantile(perc, skipna=True)
+    sign = abs(threshold)/threshold
+
+    # find outliers and replace them with max among remaining values 
+    # .where replace outliers with nan
+    mask = data.where(abs(data) <= abs(threshold))
+    max_value = abs(mask).max().values
+
+    # fill na values with the next highest values below the threshold
+    mask = mask.fillna(max_value*sign)
+
+    # remove the quantile coordinate
+    data = mask.drop_vars('quantile')
+    
+    return data
 
 # smooth out 3d dataarray over time, lat, lon using desired windows
+# requires at least 20 of the gridcells to be non-nan values to 
+# calculate the mean (specified by min_periods)
 def smooth_3D_da(
     da,
     t_window=smoothing_time_window,
@@ -38,7 +60,7 @@ def smooth_3D_da(
         time=t_window,
         lat=lat_window,
         lon=lon_window,
-        min_periods=1,
+        min_periods=20,
         center=True,
     ).mean(skipna=True)
 
@@ -59,7 +81,7 @@ bias_avg_base = bias_4x5
 # for the edges we use backfill and forwardfill which takes 
 # the nearest lat and infills all the way to the edge
 lat_base = (
-    bias_avg_base.mean(dim="lon", skipna=True)
+    bias_avg_base.mean(dim=["lon"], skipna=True)
     .interpolate_na(dim="lat", method="nearest")
     .bfill(dim="lat")
     .ffill(dim="lat")
@@ -78,15 +100,22 @@ lat_base_full = xr.where(lat_base_full != np.nan, np.nan, np.nan)
 for i in range(len(TROPOMI_lon)):
     lat_base_full[:, :, i] = lat_base
 
-# infill nan values in smoothed bias with latitudinal averages
-# for each corresponding day and smooth the result
-bias_avg_base = smooth_3D_da(bias_avg_base.fillna(lat_base_full))
+# infill nan values in bias with latitudinal averages
+# for each corresponding day
+bias_avg_base = bias_avg_base.fillna(lat_base_full)
 
-# infill nan values of raw bias data with the smoothed
-# average background data and smooth the final product
-bias_4x5_new = smooth_3D_da(bias_4x5.fillna(bias_avg_base))
+# infill nan values of raw bias data with the
+# average background data, replace any extreme outliers with more 
+# reasonable maximums, and smooth the final product over lat and lon
+bias_4x5_new = replace_outliers(bias_4x5.fillna(bias_avg_base), perc=.01)
+bias_4x5_new = bias_4x5_new.rolling(
+        lat=smoothing_lat_window,
+        lon=smoothing_lon_window,
+        min_periods = 1,
+        center=True,
+    ).mean()
 
-print(bias_4x5_new.mean(skipna=True))
+print(f"Average bias in ppb (GC-tropomi): {bias_4x5_new.mean()}")
 
 # create dataset and export to netcdf file
 ds = bias_4x5_new.to_dataset(name="Bias")
