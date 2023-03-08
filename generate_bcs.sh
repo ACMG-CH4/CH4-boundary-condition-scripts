@@ -2,16 +2,16 @@
 
 #SBATCH -c 8
 #SBATCH -N 1
-#SBATCH -t 0-24:00
+#SBATCH -t 0-48:00
 #SBATCH -p huce_intel
 #SBATCH --mem=15000
 #SBATCH --mail-type=END
-#SBATCH -o bc_output_2022extras.log
+#SBATCH -o bc_output.log
 
 source ~/envs/gcc_cmake.gfortran102_cannon.env
 export PYTHONPATH="/n/holyscratch01/jacob_lab/lestrada/IMI/CH4-boundary-condition-scripts"
 
-module load gcc/9.3.0-fasrc01 R/4.0.5-fasrc02
+set -e
 
 cd Step1_convert_GC
 python template_archive.py
