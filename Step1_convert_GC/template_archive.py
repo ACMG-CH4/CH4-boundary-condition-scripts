@@ -9,6 +9,7 @@ import os
 import pandas as pd
 import datetime
 from shapely.geometry import Polygon
+from joblib import Parallel, delayed
 from utilities.utils import mkdir, download_TROPOMI, read_config_file
 
 # ----- define function -------
@@ -20,17 +21,6 @@ def save_obj(obj, name):
 def load_obj(name):
     with open(name, "rb") as f:
         return pickle.load(f)
-
-# test if the file can be opened
-def file_is_corrupt(filename):
-    try:
-        f = xr.open_dataset(filename)
-        f.close()
-        return False
-    except:
-        print(f"{filename} could not be opened. Skipping file")
-        return True
-
 
 
 def read_tropomi(filename):
@@ -549,28 +539,28 @@ file_indices = (
 )
 
 mkdir(outputdir)
-for index in file_indices:
+def process(index):
     print("========================")
     filename = Sat_files[index]
     temp = re.split("\/", filename)[-1]
     print(temp)
     date = re.split("\.", temp)[0]
-    if os.path.isfile(outputdir + date + "_GCtoTROPOMI.pkl") or file_is_corrupt(filename):
-        continue
+    if os.path.isfile(outputdir + date + "_GCtoTROPOMI.pkl"):
+        print(f"Invalid file:{temp}. Skipping..")
+        return None
     # test if the file can be opened, if corrupted continue to the next file.
     try:
         f = xr.open_dataset(filename)
         f.close()
+        result = use_AK_to_GC(
+            filename,
+            GC_startdate,
+            GC_enddate,
+            use_Sensi=config["options"]["use_sensi"],
+            xlim=xlim,
+            ylim=ylim,
+        )
+        save_obj(result, outputdir + date + "_GCtoTROPOMI.pkl")
     except:
         print(f"{temp} could not be opened. Skipping file")
-        continue
-
-    result = use_AK_to_GC(
-        filename,
-        GC_startdate,
-        GC_enddate,
-        use_Sensi=config["options"]["use_sensi"],
-        xlim=xlim,
-        ylim=ylim,
-    )
-    save_obj(result, outputdir + date + "_GCtoTROPOMI.pkl")
+Parallel(n_jobs=-1)(delayed(process)(index) for index in file_indices)
