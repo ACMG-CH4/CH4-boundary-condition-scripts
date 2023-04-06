@@ -4,13 +4,13 @@
 # =====================================================================
 # paths needed for various scripts
 paths:
-  workdir: /home/ubuntu/CH4-boundary-condition-scripts/
-  GC_datadir: /home/ubuntu/run_gc_13.3.3/OutputDir/
+  workdir: /n/holylfs05/LABS/jacob_lab/lestrada/IMI/BCs/CH4-boundary-condition-scripts/
+  GC_datadir: /n/holylfs05/LABS/jacob_lab/lestrada/IMI/BCs/runGCC1402/OutputDir/
   outputBucket: s3://imi-boundary-conditions/test
 options:
   # must be in YYYY-mm-dd HH:MM:SS format
-  startdate: "2020-04-01 00:00:00" 
-  enddate: "2020-05-30 00:00:00"
+  startdate: "2018-04-30 00:00:00" 
+  enddate: "2023-03-01 00:00:00"
   download_sat_data: False # is the tropomi data downloaded?
   upload_to_s3: False # upload resulting boundary conditions to s3?
   use_sensi: False # sensitivities
